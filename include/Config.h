@@ -20,9 +20,9 @@ const int IR_PINS[] = {32, 33, 36, 39, 35};
 #define BUZZER 16
 
 // THRESHOLDS
-#define THRESHOLD_TEMP 40
+#define THRESHOLD_TEMP 36
 #define THRESHOLD_SMOKE 51
-#define THRESHOLD_FLAME 1500
+#define THRESHOLD_FLAME 1000
 
 // BLYNK WATCHDOG
 #define CONNECT_TIMEOUT_MS 30000UL     // Timeout 30 detik (diperpanjang dari 15s untuk power adaptor)

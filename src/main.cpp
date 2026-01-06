@@ -75,9 +75,9 @@ void loop() {
                 BlynkState::set(MODE_WAIT_CONFIG);
 
                 // Optional: Jika ingin reset credentials juga, uncomment:
-                // configStore = configDefault;
-                // config_save();
-                // BlynkState::set(MODE_RESET_CONFIG);
+                configStore = configDefault;
+                config_save();
+                BlynkState::set(MODE_RESET_CONFIG);
             }
         }
     } else if (BlynkState::is(MODE_RUNNING)) {
@@ -91,8 +91,8 @@ void loop() {
     // 2. FAST CHECK (100ms): Respon cepat untuk API & ASAP
     if (now - lastFastCheck >= 100) {
         smoke_value = getMQ2PPM();
-        int flameAnalog = getMaxIRValue();
         bool flameDetected = isFlameDetected();
+        int irAnalogValue = getIRAnalogValue();
         bool smokeDetected = smoke_value > THRESHOLD_SMOKE;
 
         bool dangerNow = flameDetected || (temp_value > THRESHOLD_TEMP && smokeDetected);
@@ -100,19 +100,26 @@ void loop() {
 
         if (dangerNow) {
             digitalWrite(LED_RED, HIGH); digitalWrite(LED_GREEN, LOW); digitalWrite(LED_YELLOW, LOW);
-            ledcWriteTone(0, 1000);  // Channel 0, 1000 Hz
+            tone(BUZZER, 1000);
             if (!lastDangerState) {
                 Blynk.logEvent("bahaya", "BAHAYA API!");
                 dangerCount++;
             }
         } else if (warningNow) {
             digitalWrite(LED_YELLOW, HIGH); digitalWrite(LED_GREEN, LOW); digitalWrite(LED_RED, LOW);
-            ledcWriteTone(0, 0);  // Turn off buzzer
-            if (!lastWarningState) Blynk.logEvent("waspada", "Asap/Suhu Meningkat");
+            noTone(BUZZER);
+            if (!lastWarningState) Blynk.logEvent("waspada", "Asap/Suhu Meningkat: " + String(smoke_value) + " PPM / " + String(temp_value) + "°C");
         } else {
             digitalWrite(LED_GREEN, HIGH); digitalWrite(LED_YELLOW, LOW); digitalWrite(LED_RED, LOW);
-            ledcWriteTone(0, 0);  // Turn off buzzer
+            noTone(BUZZER);
         }
+
+        String kondisi = lastDangerState ? "Bahaya" : (lastWarningState ? "Waspada" : "Aman");
+        Blynk.virtualWrite(V0, temp_value);
+        Blynk.virtualWrite(V1, smoke_value);
+        Blynk.virtualWrite(V2, irAnalogValue);
+        Blynk.virtualWrite(V3, kondisi);
+        Blynk.virtualWrite(V4, dangerCount);
 
         lastDangerState = dangerNow;
         lastWarningState = warningNow;
@@ -122,31 +129,6 @@ void loop() {
     // 3. SLOW CHECK (2000ms): Update DHT & Kirim ke Blynk + Serial Monitor
     if (now - lastSlowCheck >= 2000) {
         temp_value = readTemperatureSafe();
-        int ir0 = getIRAnalogValue(0);
-        int ir1 = getIRAnalogValue(1);
-        int ir2 = getIRAnalogValue(2);
-        int ir3 = getIRAnalogValue(3);
-        int ir4 = getIRAnalogValue(4);
-        int irMax = getMaxIRValue();
-
-        String kondisi = lastDangerState ? "Bahaya" : (lastWarningState ? "Waspada" : "Aman");
-
-        // Kirim ke Blynk
-        Blynk.virtualWrite(V0, temp_value);
-        Blynk.virtualWrite(V1, smoke_value);
-        Blynk.virtualWrite(V2, irMax);  // Kirim nilai analog IR flame sensor
-        Blynk.virtualWrite(V3, kondisi);
-        Blynk.virtualWrite(V4, dangerCount);
-
-        // Tampilkan di Serial Monitor untuk debug
-        Serial.println("========== SENSOR READINGS ==========");
-        Serial.printf("Status: %s\n", kondisi.c_str());
-        Serial.printf("Temp: %.1f°C | Asap (MQ2): %.1f PPM\n", temp_value, smoke_value);
-        Serial.printf("IR Flame Sensors (0-4): %4d | %4d | %4d | %4d | %4d\n", ir0, ir1, ir2, ir3, ir4);
-        Serial.printf("Max IR Value: %d (Threshold: %d)\n", irMax, THRESHOLD_FLAME);
-        Serial.printf("Danger Count: %d\n", dangerCount);
-        Serial.println("====================================");
-
         lastSlowCheck = now;
     }
 }

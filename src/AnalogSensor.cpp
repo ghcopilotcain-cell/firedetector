@@ -6,32 +6,13 @@
 // MQ2 Sensor Object Definition
 MQUnifiedsensor MQ2("ESP32", MQ2_VOLTAGE_RESOLUTION, MQ2_ADC_BIT_RESOLUTION, MQ2PIN, "MQ-2");
 
-// Minimal debounce - hanya 3 samples untuk respon cepat
-int readAnalogFast(int pin) {
+int readAnalogDebounced(int pin) {
     long total = 0;
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 10; i++) { // Dikurangi ke 10 samples agar lebih cepat
         total += analogRead(pin);
-        delayMicroseconds(100);  // Sangat minimal
+        delayMicroseconds(500);   // Dikurangi ke 500us
     }
-    return total / 3;
-}
-
-// Ambil nilai analog sensor ke-i
-int getIRAnalogValue(int sensorIndex) {
-    if (sensorIndex >= 0 && sensorIndex < 5) {
-        return readAnalogFast(IR_PINS[sensorIndex]);
-    }
-    return 0;
-}
-
-// Ambil nilai maksimal dari semua IR sensor
-int getMaxIRValue() {
-    int maxVal = 0;
-    for (int i = 0; i < 5; i++) {
-        int val = readAnalogFast(IR_PINS[i]);
-        if (val > maxVal) maxVal = val;
-    }
-    return maxVal;
+    return total / 10;
 }
 
 void initMQ2Sensor() {
@@ -60,5 +41,20 @@ float getMQ2PPM() {
 }
 
 bool isFlameDetected() {
-    return getMaxIRValue() > THRESHOLD_FLAME;
+    for (int i = 0; i < 5; i++) {
+        if (readAnalogDebounced(IR_PINS[i]) > THRESHOLD_FLAME) return true;
+    }
+    return false;
+}
+
+int getIRAnalogValue() {
+    // Baca kelima sensor IR dan kembalikan nilai tertinggi
+    int maxValue = 0;
+    for (int i = 0; i < 5; i++) {
+        int value = readAnalogDebounced(IR_PINS[i]);
+        if (value > maxValue) {
+            maxValue = value;
+        }
+    }
+    return maxValue;
 }
